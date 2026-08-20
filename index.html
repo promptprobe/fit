@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>fit · 어디에 잘릴까</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #fff6ef;
+      --paper: #fffdfb;
+      --ink: #2a1f1a;
+      --mute: #7a6558;
+      --line: #f0d8c6;
+      --accent: #ff6b57;
+      --ok: #2a9d6a;
+      --soft: #ffe2c8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font: 16px/1.5 "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(720px 360px at 90% -10%, #ffd0c4 0%, transparent 55%),
+        radial-gradient(640px 320px at 0% 100%, #ffe9a8 0%, transparent 50%),
+        var(--bg);
+      padding: 28px 16px 56px;
+    }
+    main { max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 28px; letter-spacing: -0.04em; margin: 0 0 6px; }
+    .lede { color: var(--mute); margin: 0 0 20px; }
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      font: inherit;
+      background: var(--paper);
+      resize: vertical;
+    }
+    textarea:focus { outline: 3px solid #ffc48a; border-color: #f0a36a; }
+    .count {
+      margin: 8px 0 18px;
+      color: var(--mute);
+      font-size: 13px;
+    }
+    .grid { display: grid; gap: 10px; }
+    .card {
+      text-align: left;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px 14px;
+      cursor: pointer;
+      width: 100%;
+      font: inherit;
+      color: inherit;
+    }
+    .card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px #ffd4cc; }
+    .card.over { background: #fff4f2; }
+    .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: baseline;
+    }
+    .name { font-weight: 800; }
+    .meta { color: var(--mute); font-size: 13px; }
+    .remain.ok { color: var(--ok); }
+    .remain.bad { color: var(--accent); font-weight: 800; }
+    .preview {
+      margin: 8px 0 0;
+      padding: 10px 12px;
+      background: var(--soft);
+      border-radius: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 2.4em;
+    }
+    .preview:empty::before { content: "아직 잘릴 글이 없어요"; color: var(--mute); }
+    #copy {
+      margin-top: 16px;
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 16px;
+      font: inherit;
+      font-weight: 800;
+      background: var(--accent);
+      color: white;
+      cursor: pointer;
+    }
+    #copy.ok { background: var(--ok); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>어디에 잘릴까</h1>
+    <p class="lede">제목이나 캡션을 붙여 넣으면, 각 앱에서 어디서 끊기는지 바로 보여 줘요. 설치는 필요 없어요.</p>
+    <textarea id="text" placeholder="여기에 붙여 넣으세요">오늘 저녁 8시, 여름 마지막 할인. 친구한테 보여 주고 싶은 한 줄을 여기에 적어 보세요. 너무 길면 어디서 잘리는지 바로 보여 줄게요.</textarea>
+    <p class="count">지금 <strong id="chars">0</strong>글자</p>
+    <div class="grid" id="grid"></div>
+    <button id="copy" type="button">잘린 문구 복사</button>
+  </main>
+  <script>
+    const PLATFORMS = [
+      { id: "x", name: "엑스 게시글", limit: 280 },
+      { id: "ig", name: "인스타 캡션 미리보기", limit: 125 },
+      { id: "yt", name: "유튜브 제목", limit: 70 },
+      { id: "kk", name: "카카오 알림", limit: 40 },
+      { id: "gg", name: "구글 광고 제목", limit: 30 },
+    ];
+
+    const textEl = document.getElementById("text");
+    const charsEl = document.getElementById("chars");
+    const grid = document.getElementById("grid");
+    const copyBtn = document.getElementById("copy");
+    let selected = "x";
+
+    function points(value) {
+      return Array.from(value);
+    }
+
+    function clip(value, limit) {
+      return points(value).slice(0, limit).join("");
+    }
+
+    function render() {
+      const value = textEl.value;
+      const all = points(value);
+      charsEl.textContent = String(all.length);
+      grid.replaceChildren();
+      for (const platform of PLATFORMS) {
+        const used = all.length;
+        const left = platform.limit - used;
+        const over = left < 0;
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "card" + (platform.id === selected ? " selected" : "") + (over ? " over" : "");
+        card.dataset.id = platform.id;
+        const remainClass = over ? "bad" : "ok";
+        const remainText = over ? (used - platform.limit) + "글자 넘침" : left + "글자 남음";
+        card.innerHTML =
+          '<div class="top"><span class="name">' + platform.name + '</span>' +
+          '<span class="meta">' + platform.limit + '글자 · <span class="remain ' + remainClass + '">' + remainText + "</span></span></div>" +
+          '<div class="preview"></div>';
+        card.querySelector(".preview").textContent = clip(value, platform.limit);
+        card.addEventListener("click", () => {
+          selected = platform.id;
+          render();
+        });
+        grid.appendChild(card);
+      }
+      copyBtn.textContent = "잘린 문구 복사";
+      copyBtn.classList.remove("ok");
+    }
+
+    copyBtn.addEventListener("click", async () => {
+      const platform = PLATFORMS.find((item) => item.id === selected);
+      const clipped = clip(textEl.value, platform.limit);
+      try {
+        await navigator.clipboard.writeText(clipped);
+      } catch {
+        const box = document.createElement("textarea");
+        box.value = clipped;
+        document.body.appendChild(box);
+        box.select();
+        document.execCommand("copy");
+        box.remove();
+      }
+      copyBtn.textContent = "복사했어요";
+      copyBtn.classList.add("ok");
+    });
+
+    textEl.addEventListener("input", render);
+    render();
+  </script>
+</body>
+</html>
